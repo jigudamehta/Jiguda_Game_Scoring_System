@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-projector="false">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0A0015">
+  <meta name="description" content="Universal Game Scoreboard & Team Management System — Antakshari, Quiz, Tambola and more">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <title>Game Scoring System 🎵</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- PWA Meta & Icons -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-title" content="GameScoring">
+
+  <!-- Preconnect for fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+</head>
+<body>
+
+<!-- Offline Banner -->
+<div id="offline-banner">
+  📵 You are offline — changes will sync when connection is restored
+</div>
+
+<!-- Confetti + Fireworks Canvas (full page) -->
+<canvas id="confetti-canvas"></canvas>
+<canvas id="fireworks-canvas"></canvas>
+
+<!-- App Shell -->
+<div id="app">
+
+  <!-- ── Sidebar Navigation ── -->
+  <nav id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">🎵</div>
+      <div>
+        <div class="sidebar-title" id="sidebar-event-name">Game Scoring</div>
+        <div class="sidebar-subtitle" id="sidebar-status">Loading...</div>
+      </div>
+    </div>
+
+    <div class="nav-links">
+      <div class="nav-section">Main</div>
+
+      <button class="nav-link active" data-nav="dashboard" onclick="navigate('dashboard')">
+        <span class="nav-icon">🏠</span>
+        <span>Dashboard</span>
+      </button>
+
+      <button class="nav-link" data-nav="scoreboard" onclick="navigate('scoreboard')">
+        <span class="nav-icon">🏆</span>
+        <span>Live Scoreboard</span>
+      </button>
+
+      <button class="nav-link" data-nav="timer" onclick="navigate('timer')">
+        <span class="nav-icon">⏱️</span>
+        <span>Timer</span>
+      </button>
+
+      <div class="nav-section">Admin</div>
+
+      <button class="nav-link admin-only" data-nav="team-generator" onclick="navigate('team-generator')">
+        <span class="nav-icon">🎭</span>
+        <span>Team Generator</span>
+      </button>
+
+      <button class="nav-link admin-only" data-nav="score-entry" onclick="navigate('score-entry')">
+        <span class="nav-icon">📝</span>
+        <span>Score Entry</span>
+      </button>
+
+      <button class="nav-link admin-only" data-nav="finals" onclick="navigate('finals')">
+        <span class="nav-icon">🎖️</span>
+        <span>Finals</span>
+      </button>
+
+      <button class="nav-link admin-only" data-nav="reports" onclick="navigate('reports')">
+        <span class="nav-icon">📋</span>
+        <span>Reports</span>
+      </button>
+
+      <button class="nav-link admin-only" data-nav="quiz-admin" onclick="navigate('quiz-admin')">
+        <span class="nav-icon">📢</span>
+        <span>Quiz Admin</span>
+      </button>
+
+      <div class="nav-section">System</div>
+
+      <button class="nav-link" data-nav="settings" onclick="navigate('settings')">
+        <span class="nav-icon">⚙️</span>
+        <span>Settings</span>
+      </button>
+    </div>
+
+    <div class="sidebar-footer">
+      <div id="admin-indicator" class="admin-indicator inactive">
+        <span>🔒</span><span>Viewer Mode</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Main Content ── -->
+  <div id="main-content">
+
+    <!-- Top Bar -->
+    <header id="topbar">
+      <button class="btn btn-icon btn-ghost" onclick="toggleSidebar()" title="Toggle menu" id="menu-toggle">
+        ☰
+      </button>
+
+      <span class="topbar-title" id="topbar-title">Dashboard</span>
+
+      <div class="topbar-actions">
+        <!-- Theme Toggle -->
+        <button class="btn btn-icon btn-ghost theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">☀️</button>
+
+        <!-- Projector Mode -->
+        <button class="btn btn-icon btn-ghost projector-toggle" onclick="toggleProjector()" title="Projector Mode">📽️</button>
+
+        <!-- Admin Quick Access -->
+        <button class="btn btn-sm btn-ghost" id="admin-quick-btn"
+          onclick="STATE.isAdmin ? deactivateAdmin() : showAdminActivateModal()">
+          🔒 Admin
+        </button>
+      </div>
+    </header>
+
+    <!-- ── Pages ── -->
+
+    <!-- Dashboard -->
+    <div class="page active" id="page-dashboard"></div>
+
+    <!-- Team Generator -->
+    <div class="page" id="page-team-generator"></div>
+
+    <!-- Score Entry -->
+    <div class="page" id="page-score-entry"></div>
+
+    <!-- Live Scoreboard -->
+    <div class="page" id="page-scoreboard"></div>
+
+    <!-- Finals -->
+    <div class="page" id="page-finals"></div>
+
+    <!-- Timer -->
+    <div class="page" id="page-timer"></div>
+
+    <!-- Reports -->
+    <div class="page" id="page-reports"></div>
+
+    <!-- Settings -->
+    <div class="page" id="page-settings"></div>
+
+    <!-- Quiz Admin -->
+    <div class="page" id="page-quiz-admin"></div>
+
+  </div><!-- /main-content -->
+
+</div><!-- /app -->
+
+<!-- ── Mobile Bottom Navigation ── -->
+<nav id="bottom-nav">
+  <button class="bottom-nav-item active" data-nav="dashboard" onclick="navigate('dashboard')">
+    <span class="bnav-icon">🏠</span>
+    <span>Home</span>
+  </button>
+  <button class="bottom-nav-item" data-nav="scoreboard" onclick="navigate('scoreboard')">
+    <span class="bnav-icon">🏆</span>
+    <span>Board</span>
+  </button>
+  <button class="bottom-nav-item admin-only" data-nav="score-entry" onclick="navigate('score-entry')">
+    <span class="bnav-icon">📝</span>
+    <span>Score</span>
+  </button>
+  <button class="bottom-nav-item" data-nav="timer" onclick="navigate('timer')">
+    <span class="bnav-icon">⏱️</span>
+    <span>Timer</span>
+  </button>
+  <button class="bottom-nav-item" data-nav="settings" onclick="navigate('settings')">
+    <span class="bnav-icon">⚙️</span>
+    <span>Settings</span>
+  </button>
+</nav>
+
+<!-- ── Floating Timer FAB ── -->
+<button id="timer-fab" onclick="openTimerFullscreen()" title="Open Timer">
+  <span class="fab-icon">⏱️</span>
+  <span class="fab-time" id="timer-fab-time">60</span>
+</button>
+
+<!-- ── Quick Score FAB (admin only, green ⚡ above timer) ── -->
+<button id="quick-score-fab" onclick="openQuickScore()" title="Quick Score Entry">
+  <span class="qfab-icon">⚡</span>
+  <span class="qfab-label">SCORE</span>
+</button>
+
+<!-- ── Quick Score Overlay ── -->
+<div id="quick-score-overlay" class="hidden">
+
+  <!-- Header -->
+  <div class="qs-header">
+    <div class="qs-title">⚡ Quick Score</div>
+
+    <!-- Context selectors (inline) -->
+    <div class="qs-context">
+      <span>Game</span>
+      <select id="qs-game" onchange="qsOnContextChange()"></select>
+      <span>Round</span>
+      <select id="qs-round" onchange="qsOnContextChange()"></select>
+      <span>Sub</span>
+      <select id="qs-sub" onchange="qsOnContextChange()"></select>
+    </div>
+
+    <button class="qs-close" onclick="closeQuickScore()" title="Close">✕</button>
+  </div>
+
+  <!-- Body (renders dynamically) -->
+  <div class="qs-body" id="qs-body"></div>
+
+  <!-- Footer -->
+  <div class="qs-footer">
+    <div class="qs-last-save" id="qs-last-save">
+      <span>No scores saved yet</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-ghost btn-sm" onclick="navigate('score-entry');closeQuickScore()">📝 Full Entry</button>
+      <button class="btn btn-ghost btn-sm" onclick="closeQuickScore()">✕ Close</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Toast Container ── -->
+<div id="toast-container"></div>
+
+<!-- ── Timer Fullscreen Overlay ── -->
+<div id="timer-fullscreen" class="hidden">
+  <button class="btn btn-ghost" style="position:absolute;top:var(--space-6);right:var(--space-6);font-size:24px"
+    onclick="closeTimerFullscreen()">✕</button>
+
+  <div style="text-align:center;margin-bottom:var(--space-4)">
+    <div style="font-size:var(--text-sm);color:var(--text-muted);text-transform:uppercase;letter-spacing:0.15em" id="timer-context-label">
+      Round Timer
+    </div>
+  </div>
+
+  <!-- SVG Ring -->
+  <div style="position:relative;width:340px;height:340px">
+    <svg width="340" height="340" style="transform:rotate(-90deg)">
+      <circle cx="170" cy="170" r="150" fill="none" stroke="rgba(245,166,35,0.15)" stroke-width="14"/>
+      <circle cx="170" cy="170" r="150" fill="none" stroke="#F5A623"
+        stroke-width="14" stroke-linecap="round"
+        stroke-dasharray="942.5" stroke-dashoffset="0"
+        id="timer-progress-ring" style="transition:stroke-dashoffset 1s linear,stroke 0.3s"/>
+    </svg>
+    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+      <div class="timer-display" id="timer-main-display">60</div>
+    </div>
+  </div>
+
+  <div class="timer-label" id="timer-fullscreen-label">seconds remaining</div>
+
+  <!-- Timer Controls -->
+  <div class="timer-controls">
+    <button class="btn btn-lg btn-secondary" onclick="Timer.reset()" title="Reset to start">
+      ↺ Reset
+    </button>
+    <button class="btn btn-xl btn-primary" id="timer-fullscreen-play"
+      onclick="toggleTimerFullscreen()">
+      ▶ Start
+    </button>
+    <button class="btn btn-lg btn-secondary" onclick="closeTimerFullscreen()">
+      ✕ Close
+    </button>
+  </div>
+
+  <!-- Duration quick-set -->
+  <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;justify-content:center">
+    <span style="font-size:var(--text-xs);color:var(--text-muted);align-self:center">Quick set:</span>
+    <button class="btn btn-sm btn-ghost" onclick="Timer.init(30);updateTimerDisplays()">30s</button>
+    <button class="btn btn-sm btn-ghost" onclick="Timer.init(45);updateTimerDisplays()">45s</button>
+    <button class="btn btn-sm btn-ghost" onclick="Timer.init(60);updateTimerDisplays()">60s</button>
+    <button class="btn btn-sm btn-ghost" onclick="Timer.init(90);updateTimerDisplays()">90s</button>
+    <button class="btn btn-sm btn-ghost" onclick="Timer.init(120);updateTimerDisplays()">2m</button>
+    <button class="btn btn-sm btn-ghost" onclick="Timer.init(180);updateTimerDisplays()">3m</button>
+    <button class="btn btn-sm btn-ghost" onclick="Timer.init(300);updateTimerDisplays()">5m</button>
+  </div>
+</div>
+
+<!-- ── Admin Quick Activate Modal ── -->
+<div class="modal-overlay hidden" id="admin-activate-modal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">🔓 Activate Admin Mode</div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Admin Password</label>
+        <input type="password" class="form-control" id="admin-pass-input"
+          placeholder="Enter password (default: admin123)"
+          onkeydown="if(event.key==='Enter')submitAdminPass()">
+      </div>
+      <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--space-2)">
+        Session-based — stays active until you close the tab or deactivate manually.
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="Modal.close('admin-activate-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitAdminPass()">Activate</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Scripts ── -->
+<!-- Core -->
+<script src="app.js"></script>
+
+<!-- Pages -->
+<script src="pages/dashboard.js"></script>
+<script src="pages/team-generator.js"></script>
+<script src="pages/score-entry.js"></script>
+<script src="pages/live-scoreboard.js"></script>
+<script src="pages/finals.js"></script>
+<script src="pages/timer-page.js"></script>
+<script src="pages/reports.js"></script>
+<script src="pages/settings.js"></script>
+<script src="pages/quiz-admin.js"></script>
+
+<!-- Inline glue: timer fullscreen + keyboard shortcuts -->
+<script>
+// ── Timer fullscreen play/pause toggle ───────────────────────
+function toggleTimerFullscreen() {
+  const btn = document.getElementById('timer-fullscreen-play');
+  if (STATE.timerRunning) {
+    Timer.stop();
+    if (btn) btn.textContent = '▶ Start';
+  } else {
+    Timer.start();
+    if (btn) btn.textContent = '⏸ Pause';
+  }
+}
+
+// Keep FAB and fullscreen display in sync
+const _origTimerUpdate = Timer.updateDisplay.bind(Timer);
+Timer.updateDisplay = function() {
+  _origTimerUpdate();
+  const btn = document.getElementById('timer-fullscreen-play');
+  if (btn) btn.textContent = STATE.timerRunning ? '⏸ Pause' : '▶ Start';
+  if (STATE.currentPage === 'timer') {
+    if (typeof updateTimerPageDisplay === 'function') updateTimerPageDisplay();
+  }
+};
+
+function updateTimerDisplays() {
+  Timer.updateDisplay();
+  const fab = document.getElementById('timer-fab-time');
+  if (fab) fab.textContent = STATE.timerSeconds;
+}
+
+// ── Keyboard shortcuts ───────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) return;
+  switch (e.key) {
+    case ' ':     e.preventDefault(); toggleTimerFullscreen(); break;
+    case 'f': case 'F': openTimerFullscreen(); break;
+    case 'Escape':
+      if (!document.getElementById('timer-fullscreen')?.classList.contains('hidden'))
+        closeTimerFullscreen();
+      else Modal.closeAll();
+      break;
+    case '1': navigate('dashboard');     break;
+    case '2': navigate('scoreboard');    break;
+    case '3': navigate('score-entry');   break;
+    case '4': navigate('team-generator'); break;
+    case '5': navigate('timer');         break;
+    case 't': case 'T': toggleTheme();  break;
+    case 'p': case 'P': toggleProjector(); break;
+  }
+});
+
+// ── Close mobile sidebar on outside click ─────────────────────
+document.addEventListener('click', e => {
+  const sidebar = document.getElementById('sidebar');
+  const menuBtn = document.getElementById('menu-toggle');
+  if (window.innerWidth <= 768 &&
+      sidebar?.classList.contains('mobile-open') &&
+      !sidebar.contains(e.target) &&
+      !menuBtn?.contains(e.target)) {
+    sidebar.classList.remove('mobile-open');
+  }
+});
+
+// ── Service Worker Registration (PWA) ────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(reg => console.log('PWA Service Worker registered:', reg.scope))
+      .catch(err => console.warn('Service Worker registration failed:', err));
+  });
+}
+</script>
+
+</body>
+</html>
