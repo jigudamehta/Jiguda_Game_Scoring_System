@@ -108,31 +108,49 @@ function renderScoreEntry(page) {
         <div class="card">
           <div class="card-title" style="margin-bottom:var(--space-4)">🏷️ Select Team</div>
           <div class="team-picker-grid" id="team-picker">
-            ${STATE.teams.map(t => {
+            ${STATE.teams.filter(t => {
+              const currentGames = (t.GamesPlaying || 'ALL').split(',').map(s=>s.trim()).filter(Boolean);
+              return currentGames.includes('ALL') || currentGames.includes(`Game ${STATE.currentGame}`) || (!t.GamesPlaying);
+            }).map(t => {
               const teamScore = (STATE.scores||[])
                 .filter(s => s.TeamID === t.TeamID && s.Voided !== 'Yes')
                 .reduce((acc, s) => acc + (Number(s.Total)||0), 0);
+              const isSelected = seSelectedTeam?.TeamID === t.TeamID;
+              const buttonStyle = isSelected
+                ? `border: 2px solid ${t.Color}; box-shadow: 0 0 18px ${t.Color}77; transform: scale(1.07);`
+                : `border: 2px solid rgba(255, 255, 255, 0.08);`;
               return `
-                <button class="team-picker-btn ${seSelectedTeam?.TeamID===t.TeamID?'selected':''}"
-                  style="border-color:${seSelectedTeam?.TeamID===t.TeamID?t.Color:'transparent'}"
+                <button class="team-picker-btn ${isSelected?'selected':''}"
+                  id="se-pick-${t.TeamID}"
+                  style="${buttonStyle}"
                   onclick="selectTeam('${t.TeamID}')">
                   <div class="team-avatar" style="background:${t.Color};width:48px;height:48px">${teamInitials(t.TeamName)}</div>
                   <div class="team-picker-score">${teamScore}</div>
                   <div class="team-picker-name">${t.TeamName}</div>
                 </button>`;
-            }).join('') || `<div style="color:var(--text-muted);grid-column:1/-1;text-align:center;padding:var(--space-6)">No teams configured</div>`}
+            }).join('') || `<div style="color:var(--text-muted);grid-column:1/-1;text-align:center;padding:var(--space-6)">No teams configured for Game ${STATE.currentGame}</div>`}
           </div>
         </div>
 
         <!-- Score Form -->
-        <div class="card ${!seSelectedTeam ? 'opacity-50' : ''}">
-          <div class="card-header">
-            <div class="card-title">
+        <div class="card ${!seSelectedTeam ? 'opacity-50' : ''}" 
+             style="${seSelectedTeam ? `border: 2.5px solid ${seSelectedTeam.Color}; box-shadow: 0 0 25px ${seSelectedTeam.Color}55; transition: all 0.3s ease;` : 'transition: all 0.3s ease;'}"
+             id="score-card-element">
+          
+          ${seSelectedTeam ? `
+            <div style="background:${seSelectedTeam.Color}; color:#000; font-weight:900; text-align:center; padding:var(--space-2); font-size:var(--text-sm); letter-spacing:0.05em; border-radius:var(--radius-md) var(--radius-md) 0 0; display:flex; align-items:center; justify-content:center; gap:var(--space-2); animation: pulse-border 1.5s infinite alternate;">
+              <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#000; animation: blink-indicator 0.8s infinite alternate;"></span>
+              🎯 ACTIVE TEAM: ${seSelectedTeam.TeamName.toUpperCase()}
+            </div>
+          ` : ''}
+
+          <div class="card-header" style="${seSelectedTeam ? 'border-top:none; border-radius:0;' : ''}">
+            <div class="card-title" style="font-size: var(--text-lg); font-weight: 800;">
               ${seSelectedTeam ? `
-                <div class="team-avatar" style="width:32px;height:32px;background:${seSelectedTeam.Color};font-size:13px">
+                <div class="team-avatar" style="width:36px;height:36px;background:${seSelectedTeam.Color};font-size:14px;box-shadow: 0 0 10px rgba(0,0,0,0.3)">
                   ${teamInitials(seSelectedTeam.TeamName)}
                 </div>
-                Scoring: ${seSelectedTeam.TeamName}
+                Scoring: <span style="text-shadow: 0 0 8px ${seSelectedTeam.Color}aa; color:var(--text-primary); font-size: var(--text-xl); font-weight:900;">${seSelectedTeam.TeamName}</span>
               ` : '📊 Score Entry'}
             </div>
           </div>
@@ -222,22 +240,74 @@ function renderScoreEntry(page) {
 
 function selectTeam(teamId) {
   seSelectedTeam = STATE.teams.find(t => t.TeamID === teamId);
-  // Update picker UI
-  document.querySelectorAll('.team-picker-btn').forEach(btn => btn.classList.remove('selected'));
-  const btn = document.querySelector(`.team-picker-btn[onclick*="${teamId}"]`);
-  if (btn) {
-    btn.classList.add('selected');
-    btn.style.borderColor = seSelectedTeam?.Color || 'transparent';
+
+  // ── Step 1: Reset ALL picker buttons completely ──────────────
+  document.querySelectorAll('.team-picker-btn').forEach(btn => {
+    btn.classList.remove('selected');
+    btn.style.border      = '2px solid rgba(255, 255, 255, 0.08)';
+    btn.style.boxShadow   = '';
+    btn.style.transform   = '';
+  });
+
+  // ── Step 2: Highlight only the selected button ───────────────
+  const selectedBtn = document.getElementById(`se-pick-${teamId}`);
+  if (selectedBtn && seSelectedTeam) {
+    selectedBtn.classList.add('selected');
+    selectedBtn.style.borderColor = seSelectedTeam.Color;
+    selectedBtn.style.boxShadow   = `0 0 18px ${seSelectedTeam.Color}77`;
+    selectedBtn.style.transform   = 'scale(1.07)';
   }
-  // Enable form
-  const inputs = document.querySelectorAll('#score-form input');
-  inputs.forEach(inp => inp.disabled = false);
+
+  // ── Step 3: Update the score card border + shadow ────────────
+  const scoreCard = document.getElementById('score-card-element');
+  if (scoreCard) {
+    if (seSelectedTeam) {
+      scoreCard.classList.remove('opacity-50');
+      scoreCard.style.border    = `2.5px solid ${seSelectedTeam.Color}`;
+      scoreCard.style.boxShadow = `0 0 25px ${seSelectedTeam.Color}55`;
+
+      // Update or create the ACTIVE TEAM banner
+      let banner = document.getElementById('score-card-banner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'score-card-banner';
+        // Insert as very first child so it appears above the card-header
+        scoreCard.insertBefore(banner, scoreCard.firstChild);
+      }
+      banner.style.cssText = `background:${seSelectedTeam.Color};color:#000;font-weight:900;text-align:center;padding:8px 12px;font-size:13px;letter-spacing:0.05em;border-radius:12px 12px 0 0;display:flex;align-items:center;justify-content:center;gap:8px`;
+      banner.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#000;animation:blink-indicator 0.8s infinite alternate"></span>🎯 ACTIVE TEAM: ${seSelectedTeam.TeamName.toUpperCase()}`;
+
+      // Update the card-title (avatar + "Scoring: TeamName")
+      const cardTitle = scoreCard.querySelector('.card-title');
+      if (cardTitle) {
+        cardTitle.style.fontSize   = 'var(--text-lg)';
+        cardTitle.style.fontWeight = '800';
+        cardTitle.innerHTML = `
+          <div class="team-avatar" style="width:36px;height:36px;background:${seSelectedTeam.Color};font-size:14px;box-shadow:0 0 10px rgba(0,0,0,0.3)">${teamInitials(seSelectedTeam.TeamName)}</div>
+          Scoring: <span style="text-shadow:0 0 8px ${seSelectedTeam.Color}aa;color:var(--text-primary);font-size:var(--text-xl);font-weight:900">${seSelectedTeam.TeamName}</span>
+        `;
+      }
+    } else {
+      // No team selected
+      scoreCard.classList.add('opacity-50');
+      scoreCard.style.border = '';
+      scoreCard.style.boxShadow = '';
+      const banner = document.getElementById('score-card-banner');
+      if (banner) banner.remove();
+      const cardTitle = scoreCard.querySelector('.card-title');
+      if (cardTitle) cardTitle.innerHTML = '📊 Score Entry';
+    }
+  }
+
+  // ── Step 4: Enable form inputs ───────────────────────────────
+  const inputsDisabled = !seSelectedTeam;
+  document.querySelectorAll('#score-form input').forEach(inp => inp.disabled = inputsDisabled);
   const saveBtn = document.getElementById('save-score-btn');
-  if (saveBtn) saveBtn.disabled = false;
-  // Update card title
-  const title = document.querySelector('.card-title');
+  if (saveBtn) saveBtn.disabled = inputsDisabled;
+
   updateScorePreview();
 }
+
 
 function onContextChange() {
   const game    = Number(document.getElementById('se-game')?.value || 1);

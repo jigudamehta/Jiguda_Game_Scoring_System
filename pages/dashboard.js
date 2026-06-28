@@ -51,6 +51,14 @@ function renderDashboard(page) {
     const rankCls = rankBadgeClass(rank);
     const moveCls = t.RankMove || 'same';
     const moveIcon = rankMoveIcon(t.RankMove);
+    const teamObj = STATE.teams.find(tm => tm.TeamID === t.TeamID);
+    const gamesVal = teamObj?.GamesPlaying || 'ALL';
+    const gamesBadge = gamesVal === 'ALL'
+      ? `<span class="badge badge-purple" style="font-size:9px;padding:2px 5px;background:rgba(124,58,237,0.15);color:#c084fc">All Games</span>`
+      : gamesVal === 'NONE'
+        ? `<span class="badge badge-red" style="font-size:9px;padding:2px 5px">No Games</span>`
+        : gamesVal.split(',').map(s => `<span class="badge badge-purple" style="font-size:9px;padding:2px 5px;background:rgba(124,58,237,0.15);color:#c084fc">${s.trim().replace('Game ','G')}</span>`).join(' ');
+
     return `
       <tr class="scoreboard-row rank-${rank}">
         <td><div class="rank-badge ${rankCls}">${rank}</div></td>
@@ -59,7 +67,10 @@ function renderDashboard(page) {
             <div class="team-avatar" style="width:32px;height:32px;background:${t.Color};font-size:13px">
               ${teamInitials(t.TeamName)}
             </div>
-            <span style="font-weight:600">${t.TeamName}</span>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-weight:600;font-size:var(--text-sm)">${t.TeamName}</span>
+              <div style="display:flex;gap:3px;align-items:center">${gamesBadge}</div>
+            </div>
           </div>
         </td>
         <td><span class="score-display" style="font-size:var(--text-xl)">${t.TotalScore}</span></td>

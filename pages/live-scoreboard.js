@@ -114,9 +114,18 @@ function renderScoreboard(page) {
               ${teamInitials(t.TeamName)}
             </div>
             <div>
-              <div style="font-weight:700;font-size:var(--text-base);display:flex;align-items:baseline;gap:var(--space-2)">
+              <div style="font-weight:700;font-size:var(--text-base);display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap">
                 <span>${t.TeamName}</span>
-                <span style="font-size:10px;color:var(--text-muted);font-weight:normal;letter-spacing:0.02em;white-space:nowrap">
+                ${(() => {
+                  const teamObj = STATE.teams.find(tm => tm.TeamID === t.TeamID);
+                  const gamesVal = teamObj?.GamesPlaying || 'ALL';
+                  return gamesVal === 'ALL'
+                    ? `<span class="badge badge-purple" style="font-size:8px;padding:1px 4px;background:rgba(124,58,237,0.15);color:#c084fc;font-weight:normal">All Games</span>`
+                    : gamesVal === 'NONE'
+                      ? `<span class="badge badge-red" style="font-size:8px;padding:1px 4px;font-weight:normal">No Games</span>`
+                      : gamesVal.split(',').map(s => `<span class="badge badge-purple" style="font-size:8px;padding:1px 4px;background:rgba(124,58,237,0.15);color:#c084fc;font-weight:normal">${s.trim().replace('Game ','G')}</span>`).join(' ');
+                })()}
+                <span style="font-size:10px;color:var(--text-muted);font-weight:normal;letter-spacing:0.02em;white-space:nowrap;margin-left:auto">
                   ${isExpanded ? '▼ collapse' : '▶ click for details'}
                 </span>
               </div>

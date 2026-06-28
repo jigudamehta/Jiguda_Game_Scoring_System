@@ -161,6 +161,7 @@ const DEFAULT_SETTINGS = [
   { Key: 'MIN_MALE',           Value: '2',         Label: 'Min Male Per Team',   Type: 'number',  Group: 'Teams',        Options: '', Description: 'Minimum males per team' },
   { Key: 'MIN_FEMALE',         Value: '2',         Label: 'Min Female Per Team', Type: 'number',  Group: 'Teams',        Options: '', Description: 'Minimum females per team' },
   { Key: 'CAPTAIN_MODE',       Value: 'first',     Label: 'Captain Selection',   Type: 'select',  Group: 'Teams',        Options: 'first,manual,vote', Description: 'How captain is chosen' },
+  { Key: 'TEAMS_PER_GAME',      Value: 'ALL',       Label: 'Teams Per Game',      Type: 'select',  Group: 'Teams',        Options: 'ALL,2,3,4,5,6,7,8', Description: 'Number of teams playing in each game' },
   // Games
   { Key: 'NUM_GAMES',          Value: '3',         Label: 'Number of Games',     Type: 'number',  Group: 'Games',        Options: '', Description: 'Total games in event' },
   { Key: 'ROUNDS_PER_GAME',    Value: '3',         Label: 'Rounds Per Game',     Type: 'number',  Group: 'Games',        Options: '', Description: 'Default rounds per game' },
@@ -360,7 +361,7 @@ function sortPlayerSheet() {
 const TEAM_HEADERS = [
   'TeamID', 'TeamName', 'Captain', 'Color', 'Logo',
   'CurrentMembers', 'MaleCount', 'FemaleCount', 'AvgAge',
-  'TotalScore', 'Rank', 'Qualified', 'Locked'
+  'TotalScore', 'Rank', 'Qualified', 'Locked', 'GamesPlaying'
 ];
 
 const DEFAULT_TEAM_COLORS = [
@@ -389,7 +390,8 @@ function saveTeams(teams) {
     TotalScore:     t.TotalScore || 0,
     Rank:           t.Rank || 0,
     Qualified:      t.Qualified || 'No',
-    Locked:         t.Locked || 'No'
+    Locked:         t.Locked || 'No',
+    GamesPlaying:   t.GamesPlaying || 'ALL'
   })));
   logEvent({ action: 'TEAMS_SAVED', detail: teams.map(t => t.TeamName).join(', '), by: 'Admin' });
   return { success: true };
@@ -583,7 +585,7 @@ function lockGame(gameId, locked) {
 const SCOREBOARD_HEADERS = [
   'TeamID', 'TeamName', 'Color',
   'TotalScore', 'PrevScore', 'ScoreDiff', 'Rank', 'PrevRank', 'RankMove',
-  'Qualified', 'GamesBreakdown'
+  'Qualified', 'GamesPlaying', 'GamesBreakdown'
 ];
 
 function getMasterScoreboard() {
@@ -652,6 +654,7 @@ function rebuildMasterScoreboard() {
       PrevRank:       prev,
       RankMove:       move,
       Qualified:      t.Qualified || 'No',
+      GamesPlaying:   t.GamesPlaying || 'ALL',
       GamesBreakdown: JSON.stringify(gameBreakdown[t.TeamID] || {})
     };
   });

@@ -39,7 +39,7 @@ function renderFinals(page) {
       <h2 class="section-title">🎖️ Finals</h2>
       ${STATE.isAdmin ? `
       <div class="flex gap-2">
-        <button class="btn btn-sm btn-secondary" onclick="showQualifyModal()">✏️ Edit Qualified</button>
+        <button class="btn btn-sm btn-secondary" onclick="showQualifyModal()">🏆 Set Qualified Teams</button>
         <button class="btn btn-sm btn-danger" onclick="startCelebration()">🎆 Reveal Winner!</button>
       </div>` : ''}
     </div>
@@ -48,9 +48,13 @@ function renderFinals(page) {
     <div class="card">
       <div class="empty-state">
         <div class="empty-state-icon">🏆</div>
-        <div class="empty-state-title">No Finalists Yet</div>
-        <div class="empty-state-text">Top ${STATE.settings.FINALISTS_COUNT||2} teams from main games will qualify automatically, or you can set them manually.</div>
-        ${STATE.isAdmin ? `<button class="btn btn-primary" style="margin-top:var(--space-4)" onclick="autoQualifyTeams()">⚡ Auto-Qualify Top Teams</button>` : ''}
+        <div class="empty-state-title">No Finalists Qualified Yet</div>
+        <div class="empty-state-text">Use the button above to auto-qualify top teams, pick randomly, or manually select finalists. You can also run Semifinal → Final bracket.</div>
+        ${STATE.isAdmin ? `
+        <div style="display:flex;gap:var(--space-2);margin-top:var(--space-4);flex-wrap:wrap;justify-content:center">
+          <button class="btn btn-primary" onclick="showQualifyModal()">🏆 Set Qualified Teams</button>
+          <button class="btn btn-secondary" onclick="autoQualifyTeams()">⚡ Auto-Qualify Top ${STATE.settings.FINALISTS_COUNT || 2}</button>
+        </div>` : ''}
       </div>
     </div>` : `
 
@@ -243,40 +247,129 @@ async function autoQualifyTeams() {
 function showQualifyModal() {
   const allTeams = STATE.teams;
   const qualifiedIds = finalsData.qualifiedTeams.map(t => t.TeamID);
+
+  const teamRows = allTeams.map(t => {
+    const isChecked = qualifiedIds.includes(t.TeamID);
+    return `
+      <label id="qm-label-${t.TeamID}" class="flex items-center gap-3"
+        style="padding:var(--space-2) var(--space-3);background:var(--bg-elevated);border-radius:var(--radius-md);cursor:pointer;border:1.5px solid ${isChecked ? t.Color + '55' : 'transparent'};transition:border-color 0.2s">
+        <input type="checkbox" value="${t.TeamID}" ${isChecked ? 'checked' : ''} id="qm-${t.TeamID}"
+          onchange="document.getElementById('qm-label-${t.TeamID}').style.borderColor = this.checked ? '${t.Color}55' : 'transparent'">
+        <div class="team-avatar" style="width:28px;height:28px;background:${t.Color};font-size:11px">${teamInitials(t.TeamName)}</div>
+        <span style="font-weight:600;font-size:var(--text-sm);flex:1">${t.TeamName}</span>
+        <span style="color:var(--text-muted);font-size:var(--text-xs)">Score: ${t.TotalScore || 0}</span>
+      </label>`;
+  }).join('');
+
   const html = `
     <div class="modal-overlay" id="qualify-modal">
-      <div class="modal">
-        <div class="modal-title">✏️ Edit Finalists</div>
-        <div class="modal-body">
-          <p style="color:var(--text-muted);font-size:var(--text-sm);margin-bottom:var(--space-4)">
-            Select teams that will compete in the Finals
-          </p>
-          <div style="display:flex;flex-direction:column;gap:var(--space-2)">
-            ${allTeams.map(t => `
-              <label class="flex items-center gap-3" style="padding:var(--space-3);background:var(--bg-elevated);border-radius:var(--radius-md);cursor:pointer">
-                <input type="checkbox" value="${t.TeamID}" ${qualifiedIds.includes(t.TeamID)?'checked':''} id="qm-${t.TeamID}">
-                <div class="team-avatar" style="width:32px;height:32px;background:${t.Color};font-size:12px">${teamInitials(t.TeamName)}</div>
-                <span style="font-weight:600">${t.TeamName}</span>
-                <span style="color:var(--text-muted);font-size:var(--text-sm);margin-left:auto">Score: ${t.TotalScore||0}</span>
-              </label>`).join('')}
+      <div class="modal" style="max-width:520px;max-height:90vh;display:flex;flex-direction:column">
+        <div style="padding:var(--space-5) var(--space-5) var(--space-3);border-bottom:1px solid var(--border-subtle);flex-shrink:0">
+          <div style="font-size:var(--text-lg);font-weight:800;margin-bottom:4px">🏆 Finals Qualification</div>
+          <div style="font-size:var(--text-xs);color:var(--text-muted)">Choose how teams qualify for the Finals or Semifinals</div>
+        </div>
+
+        <div style="overflow-y:auto;flex:1;padding:var(--space-4) var(--space-5)">
+
+          <!-- ── Quick Presets ── -->
+          <div style="margin-bottom:var(--space-4)">
+            <div style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:var(--space-2)">⚡ Quick Presets</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)">
+              <button class="btn btn-secondary btn-sm" onclick="qualifyPreset('top',4)">🏆 Top 4 Teams</button>
+              <button class="btn btn-secondary btn-sm" onclick="qualifyPreset('top',2)">🏆 Top 2 Teams</button>
+              <button class="btn btn-secondary btn-sm" onclick="qualifyPreset('top',3)">🏆 Top 3 Teams</button>
+              <button class="btn btn-secondary btn-sm" onclick="qualifyPreset('top', Number(STATE.settings.FINALISTS_COUNT||2))">🏆 Top ${STATE.settings.FINALISTS_COUNT || 2} (Setting)</button>
+            </div>
+          </div>
+
+          <div style="border-top:1px solid var(--border-subtle);margin:var(--space-3) 0"></div>
+
+          <!-- ── Random Picker ── -->
+          <div style="margin-bottom:var(--space-4)">
+            <div style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:var(--space-2)">🎲 Random Picker</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)">
+              <button class="btn btn-secondary btn-sm" onclick="qualifyPreset('random',4)">🎲 4 Random Teams</button>
+              <button class="btn btn-secondary btn-sm" onclick="qualifyPreset('random',2)">🎲 2 Random Teams</button>
+            </div>
+          </div>
+
+          <div style="border-top:1px solid var(--border-subtle);margin:var(--space-3) 0"></div>
+
+          <!-- ── Manual Selection ── -->
+          <div style="margin-bottom:var(--space-4)">
+            <div style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:var(--space-2)">✏️ Manual Selection</div>
+            <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+              ${teamRows}
+            </div>
+          </div>
+
+          <!-- ── Bracket Tip ── -->
+          <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:var(--radius-md);padding:var(--space-3);font-size:var(--text-xs);line-height:1.6;color:var(--text-secondary)">
+            💡 <strong>Running a Semifinal + Final bracket?</strong><br>
+            <strong>Step 1:</strong> Use <em>Top 4</em> or pick 4 teams → Save. Play the Semifinal rounds and enter scores.<br>
+            <strong>Step 2:</strong> Come back here, <em>uncheck the losing 2 teams</em>, leaving only the 2 Finalists → Save again. Play the Grand Final!
           </div>
         </div>
-        <div class="modal-actions">
+
+        <div style="padding:var(--space-3) var(--space-5);border-top:1px solid var(--border-subtle);display:flex;gap:var(--space-2);justify-content:flex-end;flex-shrink:0">
           <button class="btn btn-ghost" onclick="Modal.closeAll()">Cancel</button>
-          <button class="btn btn-primary" onclick="saveQualified()">Save Finalists</button>
+          <button class="btn btn-primary" onclick="saveQualified()">✅ Save Qualified Teams</button>
         </div>
       </div>
     </div>`;
+
   document.body.insertAdjacentHTML('beforeend', html);
 }
 
+function qualifyPreset(type, count) {
+  // Uncheck all first
+  document.querySelectorAll('[id^="qm-"]:not([id*="label"])').forEach(cb => {
+    cb.checked = false;
+    const lbl = document.getElementById('qm-label-' + cb.value);
+    if (lbl) lbl.style.borderColor = 'transparent';
+  });
+
+  let selectedIds = [];
+  if (type === 'top') {
+    selectedIds = (STATE.scoreboard || []).slice(0, count).map(t => t.TeamID);
+    if (selectedIds.length === 0) {
+      // Fallback: use teams sorted by TotalScore
+      selectedIds = [...STATE.teams]
+        .sort((a, b) => (Number(b.TotalScore) || 0) - (Number(a.TotalScore) || 0))
+        .slice(0, count).map(t => t.TeamID);
+    }
+  } else if (type === 'random') {
+    selectedIds = [...STATE.teams]
+      .sort(() => 0.5 - Math.random())
+      .slice(0, count).map(t => t.TeamID);
+  }
+
+  selectedIds.forEach(id => {
+    const cb = document.getElementById('qm-' + id);
+    if (cb) {
+      cb.checked = true;
+      const lbl = document.getElementById('qm-label-' + id);
+      const team = STATE.teams.find(t => t.TeamID === id);
+      if (lbl && team) lbl.style.borderColor = team.Color + '55';
+    }
+  });
+
+  const label = type === 'top' ? `Top ${count}` : `Random ${count}`;
+  Toast.success(`✅ ${label} teams selected — click "Save" to apply`);
+}
+
 async function saveQualified() {
-  const checked = [...document.querySelectorAll('[id^="qm-"]:checked')].map(cb => cb.value);
+  const checked = [...document.querySelectorAll('[id^="qm-"]:not([id*="label"]):checked')].map(cb => cb.value);
   Modal.closeAll();
+  if (checked.length === 0) {
+    Toast.warning('No teams selected');
+    return;
+  }
   await API.safePost('save_finals', { data: { qualifiedTeams: checked } });
-  Toast.success('Finalists updated');
+  Toast.success(`${checked.length} team(s) qualified for Finals`);
   initFinals();
 }
+
 
 // ── Celebration / Reveal ──────────────────────────────────────
 

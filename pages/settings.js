@@ -38,6 +38,19 @@ function renderSettings(page) {
     });
   }
 
+  // Guarantee TEAMS_PER_GAME is in the list
+  if (!rawRows.some(row => row.Key === 'TEAMS_PER_GAME')) {
+    rawRows.push({
+      Key: 'TEAMS_PER_GAME',
+      Value: 'ALL',
+      Label: 'Teams Per Game',
+      Type: 'select',
+      Group: 'Teams',
+      Options: 'ALL,2,3,4,5,6,7,8',
+      Description: 'Number of teams playing in each game'
+    });
+  }
+
   const grouped = {};
   groups.forEach(g => { grouped[g] = []; });
   rawRows.forEach(row => {
@@ -311,6 +324,21 @@ function buildDefaultRawRows() {
 
 async function saveSetting(key, value) {
   STATE.settings[key] = value;
+
+  // 1. Instantly update the local storage cache
+  const cached = CACHE.load('settings') || { settings: {} };
+  if (!cached.settings) cached.settings = {};
+  cached.settings[key] = value;
+  
+  if (cached.raw) {
+    const idx = cached.raw.findIndex(r => r.Key === key);
+    if (idx !== -1) {
+      cached.raw[idx].Value = value;
+    }
+  }
+  CACHE.save('settings', cached);
+
+  // 2. Post to Google Sheets
   await API.safePost('save_settings', { data: { [key]: value } });
 }
 
@@ -318,13 +346,32 @@ async function saveAllSettings() {
   // Collect all changed input values
   const inputs = document.querySelectorAll('[onchange*="saveSetting"]');
   const data = {};
+  
+  const cached = CACHE.load('settings') || { settings: {} };
+  if (!cached.settings) cached.settings = {};
+
   inputs.forEach(inp => {
     const match = inp.getAttribute('onchange')?.match(/saveSetting\('(.+?)',/);
     if (match) {
       const key = match[1];
-      data[key] = inp.type === 'checkbox' ? (inp.checked ? 'true' : 'false') : inp.value;
+      const val = inp.type === 'checkbox' ? (inp.checked ? 'true' : 'false') : inp.value;
+      data[key] = val;
+      STATE.settings[key] = val;
+      cached.settings[key] = val;
+
+      if (cached.raw) {
+        const idx = cached.raw.findIndex(r => r.Key === key);
+        if (idx !== -1) {
+          cached.raw[idx].Value = val;
+        }
+      }
     }
   });
+
+  // 1. Instantly update local storage cache
+  CACHE.save('settings', cached);
+
+  // 2. Post to Google Sheets
   await API.safePost('save_settings', { data });
   Toast.success('All settings saved!');
 }

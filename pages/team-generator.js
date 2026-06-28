@@ -30,6 +30,9 @@ function renderTeamGenerator(page) {
   const presentPlayers = tgPlayers.filter(p => p.Present === 'Yes');
   const assigned = tgPlayers.filter(p => p.AssignedTeam);
   const numTeams = Number(STATE.settings.NUM_TEAMS || 4);
+  const teamsPerGameVal = STATE.settings.TEAMS_PER_GAME || 'ALL';
+  const teamsPerGame = (teamsPerGameVal === 'ALL' || !teamsPerGameVal) ? numTeams : Number(teamsPerGameVal);
+  const numGames = (teamsPerGame >= numTeams || teamsPerGame <= 0) ? 1 : Math.ceil(numTeams / teamsPerGame);
   const teams = STATE.teams;
 
   page.innerHTML = `
@@ -103,6 +106,54 @@ function renderTeamGenerator(page) {
                 </div>`).join('')}
           </div>
         </div>
+
+        <!-- Game Assignment Card -->
+        ${teams.length > 0 && STATE.isAdmin ? `
+        <div class="card" style="border-color:rgba(124,58,237,0.3)">
+          <div class="card-header">
+            <div class="card-title">🎮 Game Assignments</div>
+            <span class="badge badge-purple" style="font-size:10px">${numGames} Games</span>
+          </div>
+          <div style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-3);line-height:1.5">
+            Check which game(s) each team plays. Hit <strong>Save</strong> when done.
+          </div>
+
+          <!-- Pending changes banner (hidden until a checkbox is ticked) -->
+          <div id="game-assign-pending" style="display:none;margin-bottom:var(--space-3);padding:var(--space-2) var(--space-3);background:rgba(243,156,18,0.12);border:1px solid rgba(243,156,18,0.35);border-radius:var(--radius-md);font-size:var(--text-xs);color:var(--warning);display:none;align-items:center;justify-content:space-between">
+            <span>⚠️ Unsaved changes</span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:0">
+            ${teams.map(t => {
+              const currentGames = (t.GamesPlaying || 'ALL').split(',').map(s=>s.trim()).filter(Boolean);
+              const gameCheckboxes = Array.from({length: numGames}, (_, idx) => {
+                const gName = `Game ${idx+1}`;
+                const isChecked = currentGames.includes('ALL') || currentGames.includes(gName) || !t.GamesPlaying;
+                return `<label style="display:flex;align-items:center;gap:4px;font-size:var(--text-xs);cursor:pointer;white-space:nowrap;padding:2px 6px;background:${isChecked?'rgba(124,58,237,0.12)':'transparent'};border-radius:4px">
+                  <input type="checkbox" onchange="toggleTeamGame('${t.TeamID}','${gName}',this.checked)" ${isChecked?'checked':''}> G${idx+1}
+                </label>`;
+              }).join('');
+              const labelText = (t.GamesPlaying && t.GamesPlaying !== 'ALL') ? t.GamesPlaying : 'All games';
+              const labelColor = (t.GamesPlaying && t.GamesPlaying !== 'ALL') ? 'var(--gold-400)' : 'var(--text-muted)';
+              const label = `<span class="game-assign-label" style="font-size:9px;color:${labelColor};font-weight:700;margin-left:4px">${labelText}</span>`;
+              return `
+                <div data-game-row="${t.TeamID}" style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) var(--space-1);border-bottom:1px solid var(--border-subtle)">
+                  <div style="display:flex;align-items:center;gap:var(--space-2);min-width:0;flex:1">
+                    <div class="team-avatar" style="width:26px;height:26px;background:${t.Color};font-size:10px;flex-shrink:0">${teamInitials(t.TeamName)}</div>
+                    <div style="font-weight:600;font-size:var(--text-xs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.TeamName}${label}</div>
+                  </div>
+                  <div style="display:flex;gap:var(--space-1);flex-shrink:0;margin-left:var(--space-2)">${gameCheckboxes}</div>
+                </div>`;
+            }).join('')}
+          </div>
+
+          <!-- Save button -->
+          <div style="margin-top:var(--space-4);padding-top:var(--space-3);border-top:1px solid var(--border-subtle)">
+            <button id="game-assign-save-btn" class="btn btn-primary w-full" onclick="saveGameAssignments()">
+              💾 Save Game Assignments
+            </button>
+          </div>
+        </div>` : ''}
 
         <!-- Assignment Controls -->
         ${STATE.isAdmin ? `
@@ -712,4 +763,76 @@ async function confirmResetTeams() {
   STATE.players = tgPlayers;
   Toast.success('Teams reset');
   initTeamGenerator();
+}
+
+// ── Game Assignments ─────────────────────────────────────────
+// Checkbox change: update memory only, NO API call yet
+function toggleTeamGame(teamId, gameName, checked) {
+  const team = STATE.teams.find(t => t.TeamID === teamId);
+  if (!team) return;
+
+  const numTeams = Number(STATE.settings.NUM_TEAMS || 4);
+  const teamsPerGameVal = STATE.settings.TEAMS_PER_GAME || 'ALL';
+  const teamsPerGame = (teamsPerGameVal === 'ALL' || !teamsPerGameVal) ? numTeams : Number(teamsPerGameVal);
+  const numGames = (teamsPerGame >= numTeams || teamsPerGame <= 0) ? 1 : Math.ceil(numTeams / teamsPerGame);
+
+  // Expand 'ALL' to explicit list so we can manipulate it
+  let currentGames = (team.GamesPlaying || 'ALL').split(',').map(s => s.trim()).filter(Boolean);
+  if (currentGames.includes('ALL') || !team.GamesPlaying) {
+    currentGames = Array.from({length: numGames}, (_, i) => `Game ${i + 1}`);
+  }
+
+  if (checked) {
+    if (!currentGames.includes(gameName)) currentGames.push(gameName);
+  } else {
+    currentGames = currentGames.filter(g => g !== gameName);
+  }
+
+  // Collapse back to 'ALL' if all games are selected
+  if (currentGames.length >= numGames) {
+    team.GamesPlaying = 'ALL';
+  } else if (currentGames.length === 0) {
+    team.GamesPlaying = 'NONE';
+  } else {
+    currentGames.sort();
+    team.GamesPlaying = currentGames.join(', ');
+  }
+
+  // Update label inline without full re-render (preserves checkbox states)
+  const row = document.querySelector(`[data-game-row="${teamId}"]`);
+  if (row) {
+    const lbl = row.querySelector('.game-assign-label');
+    if (lbl) {
+      lbl.textContent = (team.GamesPlaying && team.GamesPlaying !== 'ALL')
+        ? team.GamesPlaying
+        : 'All games';
+      lbl.style.color = (team.GamesPlaying && team.GamesPlaying !== 'ALL')
+        ? 'var(--gold-400)' : 'var(--text-muted)';
+    }
+  }
+
+  // Show the pending-changes banner and highlight the save button
+  const pending = document.getElementById('game-assign-pending');
+  if (pending) pending.style.display = 'flex';
+  const saveBtn = document.getElementById('game-assign-save-btn');
+  if (saveBtn) {
+    saveBtn.style.background = 'var(--gold-500)';
+    saveBtn.style.color = '#000';
+    saveBtn.textContent = '💾 Save Game Assignments ●';
+  }
+}
+
+// Save button: this is the ONLY place that calls the API
+async function saveGameAssignments() {
+  const saveBtn = document.getElementById('game-assign-save-btn');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ Saving…'; }
+  try {
+    await API.safePost('save_teams', { teams: STATE.teams });
+    Toast.success('Game assignments saved!');
+    // Full re-render to sync labels
+    renderTeamGenerator(document.getElementById('page-team-generator'));
+  } catch (err) {
+    Toast.error('Save failed — will retry when connection restores');
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Save Game Assignments ●'; }
+  }
 }
